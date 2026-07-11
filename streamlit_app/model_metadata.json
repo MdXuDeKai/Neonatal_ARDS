@@ -1,0 +1,104 @@
+{
+  "model_name": "RandomForest",
+  "feature_set": "Clinical_plus_Inflammation",
+  "features": [
+    "AI",
+    "ACS",
+    "MA",
+    "GH",
+    "GDM",
+    "SII"
+  ],
+  "binary_features": [
+    "AI",
+    "ACS",
+    "GH",
+    "GDM"
+  ],
+  "continuous_features": [
+    "MA",
+    "SII"
+  ],
+  "primary_threshold": 0.4244285129055564,
+  "primary_threshold_name": "youden",
+  "outcome_prevalence": 0.4713656387665198,
+  "n_train": 158,
+  "n_test": 69,
+  "train_metrics_primary_threshold": {
+    "auc": 0.8891570141570142,
+    "pr_auc": 0.8716803793568839,
+    "brier": 0.1520237867581729,
+    "sensitivity": 0.8378378378378378,
+    "specificity": 0.7619047619047619,
+    "ppv": 0.7560975609756098,
+    "npv": 0.8421052631578947,
+    "accuracy": 0.7974683544303798,
+    "f1": 0.7948717948717948,
+    "tp": 62,
+    "fp": 20,
+    "tn": 64,
+    "fn": 12
+  },
+  "test_metrics_primary_threshold": {
+    "auc": 0.8274410774410774,
+    "pr_auc": 0.8275573414472155,
+    "brier": 0.1751582944294388,
+    "sensitivity": 0.7878787878787878,
+    "specificity": 0.7777777777777778,
+    "ppv": 0.7647058823529411,
+    "npv": 0.8,
+    "accuracy": 0.782608695652174,
+    "f1": 0.7761194029850746,
+    "tp": 26,
+    "fp": 8,
+    "tn": 28,
+    "fn": 7
+  },
+  "feature_reference": {
+    "AI": {
+      "type": "binary",
+      "values": [
+        0,
+        1
+      ]
+    },
+    "ACS": {
+      "type": "binary",
+      "values": [
+        0,
+        1
+      ]
+    },
+    "MA": {
+      "type": "continuous",
+      "min": 22.0,
+      "p05": 26.0,
+      "median": 31.0,
+      "p95": 39.0,
+      "max": 44.0
+    },
+    "GH": {
+      "type": "binary",
+      "values": [
+        0,
+        1
+      ]
+    },
+    "GDM": {
+      "type": "binary",
+      "values": [
+        0,
+        1
+      ]
+    },
+    "SII": {
+      "type": "continuous",
+      "min": 80.6373057,
+      "p05": 352.69379914,
+      "median": 848.2312925,
+      "p95": 2082.6286718999995,
+      "max": 8217.615385
+    }
+  },
+  "note": "Research prototype only. Trained on the training split of the ARDS antenatal cohort; internal validation only, no external validation."
+}
