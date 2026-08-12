@@ -1,5 +1,5 @@
 """
-ARDS antenatal risk prediction - Streamlit web app.
+Neonatal ARDS research classifier - Streamlit web app.
 
 Loads the locked random-forest model (ards_rf_model.joblib) exported by
 train_export_model.py and provides an interactive risk calculator with
@@ -24,21 +24,23 @@ MODEL_PATH = HERE / "ards_rf_model.joblib"
 META_PATH = HERE / "model_metadata.json"
 
 FEATURE_LABELS = {
-    "AI": "Maternal infection",
+    "AI": "Antenatal infection",
     "ACS": "Antenatal corticosteroids",
     "MA": "Maternal age (years)",
-    "GH": "Gestational hypertension",
+    "GH": "Gestational hypothyroidism",
     "GDM": "Gestational diabetes mellitus",
     "SII": "Systemic immune-inflammation index",
 }
 FEATURE_HELP = {
-    "AI": "Maternal infection documented before delivery (No / Yes).",
+    "AI": "Antenatal infection documented within 14 days before delivery (No / Yes).",
     "ACS": "Any antenatal corticosteroid administration (No / Yes).",
     "MA": "Maternal age at delivery, in years.",
-    "GH": "Diagnosis of gestational hypertension (No / Yes).",
+    "GH": "Diagnosis of hypothyroidism during pregnancy (No / Yes).",
     "GDM": "Diagnosis of gestational diabetes mellitus (No / Yes).",
     "SII": "SII = Platelet count x Neutrophil count / Lymphocyte count.",
 }
+
+EXPECTED_FEATURES = ["AI", "ACS", "MA", "GH", "GDM", "SII"]
 
 CUSTOM_CSS = """
 <style>
@@ -99,6 +101,9 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; color: #12233f; let
 @st.cache_resource
 def load_artifacts():
     model = joblib.load(MODEL_PATH)
+    # A single interactive prediction does not benefit from worker-pool setup,
+    # and one thread keeps the calculator compatible with restricted hosts.
+    model.named_steps["model"].n_jobs = 1
     with open(META_PATH, "r", encoding="utf-8") as f:
         meta = json.load(f)
     return model, meta
@@ -118,19 +123,19 @@ def get_shap_explainer(_model):
         return None, None
 
 
-def risk_band(prob: float, threshold: float) -> tuple[str, str]:
+def classification_display(prob: float, threshold: float) -> tuple[str, str]:
+    """Return the model classification without inventing unvalidated risk bands."""
     if prob >= threshold:
-        return "High risk", "#b42318"
-    if prob >= threshold * 0.6:
-        return "Intermediate risk", "#b54708"
-    return "Lower risk", "#175cd3"
+        return "Above the reporting threshold", "#b42318"
+    return "Below the reporting threshold", "#175cd3"
 
 
 def main() -> None:
     st.set_page_config(
-        page_title="ARDS Antenatal Risk Predictor",
+        page_title="Neonatal ARDS Research Classifier",
         page_icon="🫁",
         layout="wide",
+        initial_sidebar_state="collapsed",
     )
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
@@ -143,6 +148,12 @@ def main() -> None:
 
     model, meta = load_artifacts()
     features = meta["features"]
+    if features != EXPECTED_FEATURES:
+        st.error(
+            "The deployed artifact does not match the manuscript-locked six-predictor "
+            "model. Expected AI, ACS, MA, GH, GDM and SII."
+        )
+        st.stop()
     binary_features = set(meta["binary_features"])
     threshold = float(meta["primary_threshold"])
     ref = meta["feature_reference"]
@@ -160,30 +171,40 @@ def main() -> None:
 """
         )
         tm = meta["test_metrics_primary_threshold"]
-        st.markdown("#### Held-out test performance")
+        st.markdown("#### Internal test-set performance")
         c1, c2 = st.columns(2)
         c1.metric("AUC", f"{tm['auc']:.3f}")
-        c2.metric("PR-AUC", f"{tm['pr_auc']:.3f}")
+        c2.metric("AP", f"{tm['pr_auc']:.3f}")
         c3, c4 = st.columns(2)
         c3.metric("Sensitivity", f"{tm['sensitivity']:.2f}")
         c4.metric("Specificity", f"{tm['specificity']:.2f}")
         st.caption(
-            "Research prototype for internal use only. Internally validated "
-            "(bootstrap optimism correction); not externally validated. "
-            "Not a medical device and not a substitute for clinical judgement."
+            "Research prototype evaluated in an internal test set from the same "
+            "cohort; not externally validated. The displayed probability is not "
+            "a transportable absolute risk estimate."
         )
 
     # ------------------------------------------------------------------- Header
     st.markdown(
         """
 <div class="hero">
-  <div class="eyebrow">Clinical prediction model</div>
-  <h1>ARDS Antenatal Risk Predictor</h1>
-  <p>Estimate the probability of the ARDS pregnancy outcome from six routinely
-     available antenatal predictors, with an individual-level explanation.</p>
+  <div class="eyebrow">Research-use classification model</div>
+  <h1>Neonatal ARDS Research Classifier</h1>
+  <p>For retrospective research in a cohort of mechanically ventilated
+     late-preterm and term neonates with respiratory distress, this interface
+     distinguishes neonatal ARDS from pooled non-ARDS respiratory conditions
+     using six maternal predictors available immediately before delivery.</p>
 </div>
 """,
         unsafe_allow_html=True,
+    )
+
+    st.warning(
+        "Target population and timing: this model was developed only in neonates "
+        "with respiratory distress requiring mechanical ventilation. It was not "
+        "evaluated for antenatal screening of unselected pregnancies, cannot be "
+        "used before target-population eligibility is known, and must not guide "
+        "the initial decision to administer antenatal corticosteroids."
     )
 
     left, right = st.columns([1, 1.15], gap="large")
@@ -237,34 +258,43 @@ def main() -> None:
                         label, value=float(ref[f]["median"]), help=help_txt
                     )
             submitted = st.form_submit_button(
-                "Predict risk", type="primary", use_container_width=True
+                "Calculate model estimate", type="primary", use_container_width=True
             )
 
     # ---------------------------------------------------------------- Prediction
     with right:
         st.markdown('<div class="section-title">Prediction</div>', unsafe_allow_html=True)
         if not submitted:
-            st.info("Complete the inputs on the left and click **Predict risk**.")
+            st.info(
+                "Complete the inputs on the left and click "
+                "**Calculate model estimate**."
+            )
             _render_disclaimer()
             return
 
         X = pd.DataFrame([{f: values[f] for f in features}])
         prob = float(model.predict_proba(X)[:, 1][0])
-        band, color = risk_band(prob, threshold)
+        band, color = classification_display(prob, threshold)
         predicted_class = "ARDS-outcome positive" if prob >= threshold else "ARDS-outcome negative"
 
         st.markdown(
             f"""
 <div class="result" style="background:{color}12;border-color:{color};">
-  <div class="prob" style="color:{color};">{prob*100:.1f}%</div>
+  <div class="prob" style="color:{color};">{prob:.3f}</div>
   <div class="band" style="color:{color};">{band}</div>
-  <div class="cls">Classification at the Youden threshold
-     ({threshold:.3f}): <b>{predicted_class}</b></div>
+  <div class="cls">Model score and classification at the training-derived
+     Youden reporting threshold ({threshold:.3f}): <b>{predicted_class}</b></div>
 </div>
 """,
             unsafe_allow_html=True,
         )
         st.progress(min(max(prob, 0.0), 1.0))
+        st.caption(
+            "The numeric output is a model-estimated probability in this selected "
+            "development setting. It is conditional on the cohort case mix (ARDS "
+            "prevalence 47.1% overall and 47.8% in the internal test set) and is "
+            "not a calibrated absolute risk for other populations."
+        )
 
         _render_shap(model, X)
 
@@ -308,8 +338,8 @@ def _render_shap(model, X: pd.DataFrame) -> None:
         fig.tight_layout()
         st.pyplot(fig)
         st.caption(
-            "Red bars push the prediction toward higher ARDS risk; "
-            "blue bars push it toward lower risk."
+            "Red bars push the model output toward ARDS classification; "
+            "blue bars push it toward non-ARDS classification."
         )
     except Exception as exc:  # noqa: BLE001
         st.caption(f"SHAP explanation unavailable: {exc}")
@@ -320,8 +350,9 @@ def _render_disclaimer() -> None:
         """
 <div class="disclaimer">
 Research prototype. Predictions are model estimates based on a single-cohort,
-internally validated model and must not be used as the sole basis for any
-clinical decision.
+internally evaluated model. The model has uncertain calibration, lacks external
+validation and prospective clinical-impact evaluation, and must not be used for
+screening or as the basis for any clinical decision.
 </div>
 """,
         unsafe_allow_html=True,

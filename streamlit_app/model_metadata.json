@@ -100,5 +100,5 @@
       "max": 8217.615385
     }
   },
-  "note": "Research prototype only. Trained on the training split of the ARDS antenatal cohort; internal validation only, no external validation."
+  "note": "Research prototype for retrospective classification within the selected cohort of mechanically ventilated neonates with respiratory distress. Internal evaluation only; uncertain calibration and no external validation."
 }

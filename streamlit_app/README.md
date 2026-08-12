@@ -1,8 +1,15 @@
-# ARDS Antenatal Risk Predictor — Streamlit App
+# Neonatal ARDS Research Classifier — Streamlit App
 
-Interactive web app that serves the **final locked random-forest model** for
-predicting the ARDS pregnancy outcome from six routinely available antenatal
-predictors.
+Interactive research app that serves the **final locked random-forest model**
+for distinguishing neonatal ARDS from pooled non-ARDS respiratory conditions
+within the study cohort of mechanically ventilated late-preterm and term
+neonates with respiratory distress. Its six maternal predictors were available
+immediately before delivery.
+
+This is **not an antenatal screening tool** for unselected pregnancies. The
+target-population restriction is established from the neonatal clinical course,
+so the interface is a retrospective research implementation rather than a
+prospectively validated clinical workflow.
 
 ## Model summary
 
@@ -10,13 +17,16 @@ predictors.
 |------|-------|
 | Algorithm | Random forest (`n_estimators=500`, `min_samples_leaf=5`, `max_features="sqrt"`, `random_state=42`) |
 | Feature set | `Clinical_plus_Inflammation` (6 predictors) |
-| Predictors | AI (maternal infection), ACS (antenatal corticosteroids), MA (maternal age), GH (gestational hypertension), GDM (gestational diabetes), SII (systemic immune-inflammation index) |
+| Predictors | AI (antenatal infection within 14 days before delivery), ACS (antenatal corticosteroids), MA (maternal age), GH (gestational hypothyroidism), GDM (gestational diabetes), SII (systemic immune-inflammation index) |
 | Primary threshold | Youden-optimal = **0.424** |
-| Test AUC / PR-AUC / Brier | 0.827 / 0.828 / 0.175 |
-| Test sensitivity / specificity | 0.79 / 0.78 |
+| Internal test AUC / AP / Brier | 0.827 / 0.828 / 0.175 |
+| Internal test sensitivity / specificity | 0.79 / 0.78 |
 
-> Research prototype only. Internal validation (bootstrap optimism correction) only,
-> **no external validation**. Not a medical device and not a substitute for clinical judgement.
+> Research prototype only. Internal evaluation from the same cohort, uncertain
+> calibration, and **no external validation** or prospective clinical-impact
+> evaluation. The model score is conditional on the study case mix and is not a
+> transportable absolute risk estimate, a medical device, or a substitute for
+> clinical judgement.
 
 ## Files
 
@@ -69,6 +79,8 @@ Open the URL shown in the terminal (default http://localhost:8501).
 
 ## Notes
 
+- `GH` is the dataset/model code for **gestational hypothyroidism**. Gestational
+  hypertension (`CHT`) is not an input to the deployed six-predictor model.
 - SII can be entered directly or computed from PLT × NEU / LYM inside the app.
 - Each prediction shows an individual **SHAP contribution** chart explaining
   which predictors pushed the risk up or down.
